@@ -28,7 +28,7 @@ export function createScene(canvas, paint) {
     }
     const g = canvas.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.fillStyle = '#0a0d10';
+    g.fillStyle = '#09070d';
     g.fillRect(0, 0, w, h);
     const proj = projector(w, h);
     const line = (a, b, col, lw, dash) => {
