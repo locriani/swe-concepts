@@ -1,10 +1,11 @@
-/* Portfolio visual language: near-black ground, pale type, crimson accent, violet atmosphere. */
+/* Portfolio visual language: near-black ground, crimson + blue accents (red / blue / black). */
 :root {
   --bg: #030305; --panel: #0d0b12; --raised: #16131c; --sunk: #09070d;
   --fg: #dddce4; --muted: #a09dab; --faint: #7a7488;
   --rule: #23212b; --rule-hi: #302b38;
   --accent: #ed173b; --accent-dim: #2a0812;
-  --crit: #ff6b63; --high: #ff9f45; --med: #e8c44a; --low: #7f8b95; --ok: #4fc98a; --absent: #b07a8a;
+  --blue: #6541f5; --blue-dim: #160f2e;
+  --crit: #ff6b63; --high: #6541f5; --med: #8b6cff; --low: #7f8b95; --ok: #4fc98a; --absent: #b07a8a;
   --r-sm: 2px; --r-md: 3px; --r-lg: 4px;
   --sans: "Space Grotesk", Arial, sans-serif;
   --mono: "SFMono-Regular", Consolas, ui-monospace, monospace;
@@ -18,8 +19,9 @@ body {
   font: 400 14px/1.6 var(--sans);
   min-height: 100svh;
   background-image:
-    radial-gradient(ellipse at 78% 12%, #2910582d, transparent 55%),
-    radial-gradient(ellipse at 12% 72%, #42091916, transparent 48%);
+    radial-gradient(ellipse at 78% 12%, #6541f538, transparent 55%),
+    radial-gradient(ellipse at 18% 68%, #ed173b1f, transparent 48%),
+    radial-gradient(ellipse at 50% 100%, #29105822, transparent 50%);
   background-attachment: fixed;
 }
 button { font: inherit; color: inherit; }
@@ -58,7 +60,7 @@ p { margin: 0; }
 .scroll { overflow-x: auto; }
 
 .btn { cursor: pointer; background: transparent; border: 1px solid var(--rule-hi); color: var(--muted); border-radius: var(--r-sm); padding: 10px 14px; font: 400 10px/14px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
-.btn:hover:not(:disabled) { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn:hover:not(:disabled) { background: var(--blue-dim); color: var(--fg); border-color: var(--blue); }
 .btn.pri { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 .btn.pri:hover:not(:disabled) { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }

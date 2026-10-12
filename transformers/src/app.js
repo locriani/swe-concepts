@@ -15,9 +15,9 @@ const row = (a, i, d) => a.subarray(i * d, (i + 1) * d);
 const vis = (p) => p.replace(/^ /, '␣').replace(/\n/g, '↵'); // Makes leading space visible.
 const dotv = (a, b) => a.reduce((s, x, i) => s + x * b[i], 0);
 
-const BASE = [3, 3, 5], CRIMSON = [237, 23, 59], ORANGE = [255, 159, 69]; // Theme accent and highlight colours.
+const BASE = [3, 3, 5], CRIMSON = [237, 23, 59], BLUE = [101, 65, 245]; // Theme accent and highlight colours.
 const TEAL = CRIMSON; // Heatmap positive channel kept as TEAL alias for call sites.
-const C = { accent: '#ed173b', crit: '#ff6b63', high: '#ff9f45', med: '#e8c44a', low: '#7f8b95', ok: '#4fc98a', absent: '#b07a8a', fg: '#dddce4', muted: '#a09dab' };
+const C = { accent: '#ed173b', crit: '#ff6b63', high: '#6541f5', med: '#8b6cff', low: '#7f8b95', ok: '#4fc98a', absent: '#b07a8a', fg: '#dddce4', muted: '#a09dab' };
 const mixv = (to, t) => BASE.map((x, i) => x + (to[i] - x) * t);
 const mix = (to, t) => `rgb(${mixv(to, t).map(Math.round)})`;
 
@@ -27,7 +27,7 @@ let stage = 0, q = 1, layer = 12, head = 0, scaled = true, kj = null, astep = 0;
 const key = () => (kj != null && kj <= q ? kj : Math.max(0, q - 1)); // Key token for the followed pair. Any token up to the query defaults to the preceding token.
 
 const STAGES = [
-  ['Embed', 'Text to vectors', 'The text splits into byte-pair tokens. A leading space belongs to the token and appears as ␣. Each token id retrieves a 576-dimensional vector from the embedding table. That vector is the residual stream entering layer 1. RMSNorm rescales a copy before attention reads it. This model adds no position vector to the embedding. Other architectures add position vectors directly to embeddings. The final section demonstrates that approach and shows rotary position embeddings instead. Each row represents one token. Each column represents one dimension. Crimson indicates positive values while orange indicates negative values.'],
+  ['Embed', 'Text to vectors', 'The text splits into byte-pair tokens. A leading space belongs to the token and appears as ␣. Each token id retrieves a 576-dimensional vector from the embedding table. That vector is the residual stream entering layer 1. RMSNorm rescales a copy before attention reads it. This model adds no position vector to the embedding. Other architectures add position vectors directly to embeddings. The final section demonstrates that approach and shows rotary position embeddings instead. Each row represents one token. Each column represents one dimension. Crimson indicates positive values while blue indicates negative values.'],
   ['Attention', 'All heads in a layer and head walkthrough', 'Each layer runs 9 heads in parallel and each learns distinct patterns. Groups of 3 heads share keys and values to reduce memory usage. Heads 0 through 2 share one set while heads 3 through 5 and heads 6 through 8 share the remaining sets. Each card displays one head token-by-token attention matrix where rows attend to columns. The outlined row indicates the followed token. Causal masking blocks positions above the diagonal because tokens only attend to preceding tokens and themselves. Selecting a card opens that head below. Five sequential steps process the followed token through the selected head: projection then scoring then softmax then mixing then output combination.'],
   ['Heads', 'Measured behaviour of each head', 'Measurements reflect the sentence above across every head in the model. Metrics track attention allocated to the previous token, the token itself and the first token. Another metric measures attention focus sharpness. Selecting a metric colours the layer-by-head grid. Clicking a cell inspects that head. These measurements describe behaviour on this specific sentence rather than permanent roles. Heads vary behaviour across different texts.'],
   ['Layer', 'Inside one layer step by step', 'One transformer layer applies sequentially to the followed token. Each layer contains two sub-blocks that read the vector and add updates to the residual stream. Attention gathers information from other tokens while the MLP processes the token independently. RMSNorm normalises the vector before each sub-block. Residual connections add each sub-block output back into the stream without overwriting previous values. The token vector therefore evolves gradually across depth. Displayed values correspond to the selected token and layer. The table at the bottom allows selecting other layers for comparison.'],
@@ -53,7 +53,7 @@ function stripCanvas(arr, n, d) {
   const c = el('canvas'); c.width = d; c.height = n;
   const g = c.getContext('2d'), im = g.createImageData(d, n);
   for (let k = 0; k < arr.length; k++) {
-    const v = clamp(arr[k] / S, -1, 1), [r, gg, b] = mixv(v >= 0 ? TEAL : ORANGE, Math.abs(v));
+    const v = clamp(arr[k] / S, -1, 1), [r, gg, b] = mixv(v >= 0 ? TEAL : BLUE, Math.abs(v));
     im.data.set([r, gg, b, 255], k * 4);
   }
   g.putImageData(im, 0, 0);
@@ -223,7 +223,7 @@ function headCards() {
 // ---------- attention one step at a time: the followed token, one head ----------
 const ASTEPS = ['Project', 'Score', 'Softmax', 'Mix', 'Combine'];
 const cols = (a, w, c0, len, rows) => { const o = new Float32Array(rows * len); for (let i = 0; i < rows; i++) o.set(a.subarray(i * w + c0, i * w + c0 + len), i * len); return o; }; // Extracts column slices across rows of an n by w array.
-const sbar = (v, mx) => `<div class="bar"><i style="width:${Math.abs(v) / mx * 100}%;background:${v < 0 ? C.high : C.accent}"></i></div>`; // Crimson indicates positive and orange indicates negative.
+const sbar = (v, mx) => `<div class="bar"><i style="width:${Math.abs(v) / mx * 100}%;background:${v < 0 ? C.high : C.accent}"></i></div>`; // Crimson indicates positive and blue indicates negative.
 
 function attnSteps() {
   const { n, d, heads, kv } = tr, dh = d / heads, g = Math.floor(head / (heads / kv)) * dh, m = q + 1, kw = kv * dh, k = sqrtDk();
@@ -247,7 +247,7 @@ function attnSteps() {
     raw.forEach((r, j) => t.append(keyRow(j,  `<span class="mono" style="flex:0 0 110px">${esc(vis(pieces[j]))}</span><span class="num">${r.toFixed(2)}</span>${sbar(score[j], Math.max(...score.map(Math.abs)) || 1)}<span class="num">${score[j].toFixed(2)}</span>`)));
     blocked().forEach((r) => t.append(r));
     body.push(
-      p(`The query vector for ${tok} computes dot products against keys of visible tokens. Pairwise products across 64 dimensions sum to raw scores. Large positive sums indicate strong alignment (crimson). Negative sums indicate opposing alignment (orange). Causal masking blocks future tokens.`),
+      p(`The query vector for ${tok} computes dot products against keys of visible tokens. Pairwise products across 64 dimensions sum to raw scores. Large positive sums indicate strong alignment (crimson). Negative sums indicate opposing alignment (blue). Causal masking blocks future tokens.`),
       t,
       el('p', 'note', scaled ? `Dividing dot products by &radic;d<sub>k</sub> = &radic;${dh} = ${k} prevents score variance growth.` : `Without scaling by &radic;d<sub>k</sub> sums over ${dh} dimensions expand by a factor of ${k}. Softmax saturation then concentrates almost all attention weight onto a single token.`));
   } else if (astep === 2) {
@@ -326,7 +326,7 @@ function pairPanel() {
     r.append(lb);
     [...vals, mean].forEach((v, h) => {
       const c = el('button', 'hc' + (l + 1 === layer && h === head ? ' on' : ''), v >= 0.005 ? (v > 0.995 ? '1' : v.toFixed(2).replace(/^0/, '')) : '');
-      c.style.background = mix(h === vals.length ? ORANGE : TEAL, Math.sqrt(clamp(v, 0, 1)));
+      c.style.background = mix(h === vals.length ? BLUE : TEAL, Math.sqrt(clamp(v, 0, 1)));
       c.style.color = v > 0.3 ? '#030305' : 'var(--fg)';
       c.title = `layer ${l + 1} ${h === vals.length ? 'mean of heads' : 'head ' + h}: ${v.toFixed(3)}`;
       c.onclick = () => { layer = l + 1; if (h < vals.length) head = h; render(); };
@@ -468,7 +468,7 @@ function s4() {
   });
 
   $('s4out').replaceChildren(
-    P(`Layer ${layer} inspection for <span class="step-name">${tok}</span>. Each step renders the ${d}-dimensional token vector where crimson indicates positive values and orange indicates negative values.`),
+    P(`Layer ${layer} inspection for <span class="step-name">${tok}</span>. Each step renders the ${d}-dimensional token vector where crimson indicates positive values and blue indicates negative values.`),
     el('div', 'legend', `<span><i style="background:${C.fg}"></i>token vector</span><span><i style="background:${C.accent}"></i>attention</span><span><i style="background:${C.ok}"></i>residual add</span><span><i style="background:${C.high}"></i>MLP</span><span><i style="background:${C.muted}"></i>RMSNorm</span>`),
 
     block('Half 1 · attention: gather from other tokens', 'The token attends to itself and earlier tokens and aggregates relevant representations. The Attention stage details this mechanism.'),
@@ -832,7 +832,7 @@ function render() {
   STAGES.forEach((_, i) => { $('s' + (i + 1)).hidden = i !== stage; });
   [...$('tabs').children].forEach((b, i) => b.classList.toggle('on', i === stage));
   $('stageTitle').textContent = STAGES[stage][1];
-  $('stageText').innerHTML = STAGES[stage][2] + (stage === 5 ? ` The full hidden vectors contain ${tr.d} dimensions. PCA extracts the 3 orthogonal axes of maximum variance across all tokens and depths. Crimson edges indicate attention from tokens to preceding context where thickness and brightness scale with aggregate attention across all ${tr.heads} heads. The white edge highlights the token pair selected on the Attention page. The depth slider advances representations from initial embeddings through layer ${tr.layers.length} while intermediate positions interpolate between evaluated layers. The initial sequence token in yellow serves as an attention sink. Pointer drag rotates the view. Scroll zooms. Shift-drag pans. Reset view restores default camera orientation.` : stage === 6 ? ' Geometric distances provide low-dimensional approximations because 576 dimensions project into 3 principal components. Point selection displays nearest neighbors by cosine similarity. Pointer drag rotates the view. Scroll zooms. Shift-drag pans. Reset view restores default camera orientation.' : '');
+  $('stageText').innerHTML = STAGES[stage][2] + (stage === 5 ? ` The full hidden vectors contain ${tr.d} dimensions. PCA extracts the 3 orthogonal axes of maximum variance across all tokens and depths. Crimson edges indicate attention from tokens to preceding context where thickness and brightness scale with aggregate attention across all ${tr.heads} heads. The white edge highlights the token pair selected on the Attention page. The depth slider advances representations from initial embeddings through layer ${tr.layers.length} while intermediate positions interpolate between evaluated layers. The initial sequence token in blue-violet serves as an attention sink. Pointer drag rotates the view. Scroll zooms. Shift-drag pans. Reset view restores default camera orientation.` : stage === 6 ? ' Geometric distances provide low-dimensional approximations because 576 dimensions project into 3 principal components. Point selection displays nearest neighbors by cosine similarity. Pointer drag rotates the view. Scroll zooms. Shift-drag pans. Reset view restores default camera orientation.' : '');
   $('ctx').hidden = stage === 7;
   $('layers').parentElement.hidden = ![1, 2, 3].includes(stage);
   chips();
