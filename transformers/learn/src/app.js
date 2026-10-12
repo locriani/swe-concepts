@@ -10,12 +10,12 @@ const fmt = (x) => { if (!Number.isFinite(x)) return '—'; const a = Math.abs(x
 const argmax = (p) => { let m = 0; for (let i = 1; i < p.length; i++) if (p[i] > p[m]) m = i; return m; };
 const argmaxAbs = (a) => { let m = 0; for (let i = 1; i < a.length; i++) if (Math.abs(a[i]) > Math.abs(a[m])) m = i; return m; };
 
-const BASE = [10, 13, 16], TEAL = [63, 197, 189], ORANGE = [255, 159, 69];
-const C = { accent: '#3fc5bd', high: '#ff9f45', ok: '#4fc98a', crit: '#ff6b63' };
+const BASE = [3, 3, 5], TEAL = [237, 23, 59], BLUE = [101, 65, 245];
+const C = { accent: '#ed173b', high: '#6541f5', ok: '#4fc98a', crit: '#ff6b63' };
 const mixv = (to, t) => BASE.map((x, i) => x + (to[i] - x) * t);
 const mix = (to, t) => `rgb(${mixv(to, t).map(Math.round)})`;
 
-const COLS = ['#3fc5bd', '#ff9f45', '#4fc98a', '#e8c44a', '#ff6b63', '#b07a8a'];
+const COLS = ['#ed173b', '#6541f5', '#4fc98a', '#8b6cff', '#ff6b63', '#b07a8a'];
 const RUN = 40;
 
 let lines = LINES.slice();
@@ -44,7 +44,7 @@ const STAGES = [
   ['MLP', 'SwiGLU, and a closed gate blocks the gradient', 'The MLP hidden unit is silu(gate) times up. The product rule splits the incoming gradient across the gate and the up projection. The three bars are the unit with the largest gradient. A nearly closed gate stops the gradient, so that unit’s up-gradient stays small.'],
   ['Attention', 'The attention gradient says which earlier word should count', 'Attention mixes the tokens already read. The weights are a softmax, and the gradient on a weight says whether the loss wants that earlier token up-weighted or down-weighted. Future tokens are masked, so their gradient stays zero.'],
   ['Embed', 'Tied embeddings add both gradients into one row', 'The embedding row for this token receives the gradient from the lookup, after attention and the residual. It also receives the unembed gradient from every position that scored this word. Tied weights add those two gradients into the update.'],
-  ['Step', 'One parameter, four gradients', 'These bars are the gradient of a single parameter, the entry where the sentences disagree most. Orange is a negative gradient. Gradient descent adds to that weight, because the update is weight minus learning rate times gradient. Teal is a positive gradient, so the weight shrinks. Train all applies the mean gradient. Train this sentence applies only that sentence’s gradient.'],
+  ['Step', 'One parameter, four gradients', 'These bars are the gradient of a single parameter, the entry where the sentences disagree most. Blue is a negative gradient. Gradient descent adds to that weight, because the update is weight minus learning rate times gradient. Crimson is a positive gradient, so the weight shrinks. Train all applies the mean gradient. Train this sentence applies only that sentence’s gradient.'],
   ['Train', 'The mean gradient is what fits the training set', 'Forty steps of gradient descent on one sentence fit that sentence, and any next-word pair it shares with another. The sentences left out stay near the loss of a uniform guess. Forty steps on the mean gradient fit every sentence. Adding a sentence reinitializes the weights, because new words add embedding rows.'],
 ];
 
@@ -149,11 +149,11 @@ function heat(at, n, title, signed) {
         const v = at[i * n + j];
         c.textContent = v >= 0.05 ? (v > 0.995 ? '1' : v.toFixed(2).slice(1)) : '';
         c.style.background = mix(TEAL, Math.sqrt(v));
-        c.style.color = v > 0.45 ? '#0a0d10' : 'var(--fg)';
+        c.style.color = v > 0.45 ? '#030305' : 'var(--fg)';
       } else {
         const v = at[i * n + j], t = Math.sqrt(Math.min(1, Math.abs(v) / m));
-        c.style.background = mix(v >= 0 ? TEAL : ORANGE, t);
-        c.style.color = t > 0.55 ? '#0a0d10' : 'var(--fg)';
+        c.style.background = mix(v >= 0 ? TEAL : BLUE, t);
+        c.style.color = t > 0.55 ? '#030305' : 'var(--fg)';
       }
       r.append(c);
     }
@@ -278,7 +278,7 @@ function attentionPanel() {
   const take = (src) => Float64Array.from({ length: q + 1 }, (_, j) => src[q * n + j]);
   return withPath([
     headChips(),
-    el('p', 'note', `Query “${esc(word(q))}”, head ${head}. Rows attend to columns. Cells above the diagonal are masked. Orange is a negative gradient, teal a positive one.`),
+    el('p', 'note', `Query “${esc(word(q))}”, head ${head}. Rows attend to columns. Cells above the diagonal are masked. Blue is a negative gradient, crimson a positive one.`),
     heat(at, n, 'Attention weights', false),
     heat(da, n, '∂loss / ∂attention weight', true),
     heat(ds, n, '∂loss / ∂score', true),
@@ -371,7 +371,7 @@ function stepPanel() {
   all.onclick = () => steps(1, true);
   actions.append(one, all);
   return [
-    el('p', 'note', `Orange is a negative gradient, so gradient descent increases the weight. Teal is a positive gradient, so the weight decreases. The update subtracts learning rate times the gradient. Train all uses the mean.`),
+    el('p', 'note', `Blue is a negative gradient, so gradient descent increases the weight. Crimson is a positive gradient, so the weight decreases. The update subtracts learning rate times the gradient. Train all uses the mean.`),
     t,
     note(`${esc(cellName(spot.key, spot.i))}: ${fmt(w)} − ${fmt(rate)} × ${fmt(mean)} = ${fmt(w - rate * mean)} if the step uses every sentence.`),
     actions,
@@ -570,18 +570,18 @@ function world(p) {
 
 function drawHill({ g, proj, line }) {
   if (!walk) return;
-  g.font = '10px "IBM Plex Mono", monospace';
-  g.fillStyle = '#66727c';
+  g.font = '10px "SFMono-Regular", monospace';
+  g.fillStyle = '#7a7488';
   [['gradient', [1.4, 0, 0]], ['loss', [0, 1.4, 0]], ['later steps', [0, 0, 1.4]]].forEach(([name, v]) => {
-    line(v.map((x) => -x), v, '#232c33', 1);
+    line(v.map((x) => -x), v, '#23212b', 1);
     const p = proj(v);
     g.fillText(name, p.x + 4, p.y - 4);
   });
   const y0 = (0 - 0.5) * 1.6;
   for (let i = 0; i <= 4; i++) {
     const t = -1.2 + i * 0.6;
-    line([t, y0, -1.2], [t, y0, 1.2], '#232c33', 1);
-    line([-1.2, y0, t], [1.2, y0, t], '#232c33', 1);
+    line([t, y0, -1.2], [t, y0, 1.2], '#23212b', 1);
+    line([-1.2, y0, t], [1.2, y0, t], '#23212b', 1);
   }
   const shown = walk.pts.slice(0, -1);
   shown.push(walk.marker);
@@ -590,13 +590,13 @@ function drawHill({ g, proj, line }) {
     const [x, , z] = world(p);
     line([x, y0, z], world(p), `rgba(255,159,69,${0.25 + 0.55 * t})`, 1);
   });
-  for (let i = 1; i < shown.length; i++) line(world(shown[i - 1]), world(shown[i]), '#3fc5bd', 2);
+  for (let i = 1; i < shown.length; i++) line(world(shown[i - 1]), world(shown[i]), '#ed173b', 2);
   const m = proj(world(walk.marker));
   g.beginPath();
   g.arc(m.x, m.y, 6 * m.k, 0, 7);
-  g.fillStyle = '#e8edf1';
+  g.fillStyle = '#dddce4';
   g.fill();
-  g.strokeStyle = '#3fc5bd';
+  g.strokeStyle = '#ed173b';
   g.lineWidth = 2;
   g.stroke();
 }

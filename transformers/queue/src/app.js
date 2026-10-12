@@ -6,7 +6,7 @@ const C = {};
 for (const k of ['fg', 'muted', 'faint', 'rule', 'rule-hi', 'accent', 'accent-dim', 'high', 'crit', 'sunk', 'raised']) {
   C[k.replace('-', '')] = css.getPropertyValue('--' + k).trim();
 }
-const font = '12px IBM Plex Mono, ui-monospace, monospace';
+const font = '12px SFMono-Regular, Consolas, ui-monospace, monospace';
 
 let lambda = 2.4, mu = 1, c = 3, speed = 2, running = true;
 let locked = 'rho', focus = 'rho';
