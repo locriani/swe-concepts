@@ -136,6 +136,17 @@ button.hc { border: 0; cursor: pointer; color: var(--fg); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .legend > span { display: flex; gap: 6px; align-items: center; font: 400 11.5px/17px var(--mono); color: var(--muted); }
 .legend i { display: block; width: 8px; height: 8px; border-radius: var(--r-sm); }
+.load { display: flex; flex-direction: column; gap: 4px; }
+.load-track { position: relative; height: 10px; background: var(--sunk); border: 1px solid var(--rule); }
+.load-band { position: absolute; left: 60%; width: 10%; top: 0; bottom: 0; background: var(--ok); opacity: .4; }
+.load-mark { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--accent); }
+.load-mark.over { background: var(--high); }
+.load-mark.past { background: var(--crit); }
+.load-scale { position: relative; height: 17px; font: 400 11.5px/17px var(--mono); color: var(--faint); }
+.load-scale .zero { position: absolute; left: 0; }
+.load-scale .one { position: absolute; right: 0; }
+.load-scale .band { position: absolute; left: 65%; transform: translateX(-50%); color: var(--ok); }
+#bandTable .tr.band { box-shadow: inset 2px 0 0 var(--ok); }
 
 .sents { display: flex; flex-direction: column; gap: 6px; }
 .sent { display: flex; gap: 8px; align-items: center; padding: 4px; border-radius: var(--r-sm); }

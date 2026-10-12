@@ -32,6 +32,10 @@ near(shared.Wq, 1.0786516853932584, 1e-9, 'M/M/3 wait');
 near(lanes.Wq, 4, 1e-12, 'separate-line wait');
 assert(shared.Wq < lanes.Wq, 'one line waits less');
 near(mmc(0.5, 1, 1).Wq, mm1(0.5, 1).Wq, 1e-12, 'one register matches M/M/1');
+// One resource, wait counted in checkouts: ρ/(1−ρ). Small through 60–70%, then steep.
+for (const [rho, want] of [[0.4, 2 / 3], [0.6, 1.5], [0.7, 0.7 / 0.3], [0.8, 4], [0.9, 9]]) {
+  near(mm1(rho, 1).Wq, want, 1e-12, `checkouts of waiting at ρ=${rho}`);
+}
 assert.equal(mmc(3.6, 1, 3).stable, false);
 
 const pair = createPair(2.4, 1, 3, 7);

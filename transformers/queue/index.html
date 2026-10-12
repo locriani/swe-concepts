@@ -19,7 +19,7 @@
       <a class="mono-id" href="../">Transformer</a>
       <a class="mono-id" href="../learn/">Learning</a>
     </div>
-    <p class="muted">A store with several registers. People arrive at rate λ, and each register, while someone is there, checks them out at rate μ. Utilization ρ = λ/(cμ) is the fraction of time each register is busy. It is the same whether there is one line or a line at each register. The wait is not. A line at each register is c separate M/M/1 queues: you stay in the line you walked up to, so a register can sit idle while another line still has people. One line feeding every register is an M/M/c queue: the next free register takes the next person. Click a symbol. The store marks the thing that symbol names.</p>
+    <p class="muted">A store with several registers. People arrive at rate λ, and each register, while someone is there, checks them out at rate μ. Utilization ρ = λ/(cμ) is the fraction of time each register is busy. It is the same whether there is one line or a line at each register. The wait is not. A line at each register is c separate M/M/1 queues: you stay in the line you walked up to, so a register can sit idle while another line still has people. One line feeding every register is an M/M/c queue: the next free register takes the next person. Click a symbol. The store marks the thing that symbol names. On one contended resource the useful load is 60–70%. The bar under ρ marks that band.</p>
   </header>
 
   <section class="panel">
@@ -41,6 +41,18 @@
           <span class="op">)</span>
         </span>
       </div>
+      <div class="load">
+        <div class="load-track" aria-hidden="true">
+          <i class="load-band"></i>
+          <i class="load-mark" id="loadMark"></i>
+        </div>
+        <div class="load-scale" aria-hidden="true">
+          <span class="zero">0</span>
+          <span class="band">60–70%</span>
+          <span class="one">1</span>
+        </div>
+        <p class="note" id="loadWhy"></p>
+      </div>
       <div class="controls">
         <label class="stack grow">Arrival rate λ · <span id="lamText" class="step-name">2.40</span>
           <input id="lam" type="range" min="0.4" max="4" step="0.1" value="2.4" aria-label="Arrival rate">
@@ -58,8 +70,9 @@
           <button class="chip small" type="button" data-c="4">4</button>
         </div>
         <div class="chips" id="presets">
-          <button class="chip small" type="button" data-l="1.2" data-m="1" data-c="3">Quiet</button>
-          <button class="chip small" type="button" data-l="2.4" data-m="1" data-c="3">Busy</button>
+          <button class="chip small" type="button" data-l="1.2" data-m="1" data-c="3">Quiet · 40%</button>
+          <button class="chip small" type="button" data-l="2" data-m="1" data-c="3">60–70%</button>
+          <button class="chip small" type="button" data-l="2.4" data-m="1" data-c="3">Busy · 80%</button>
           <button class="chip small" type="button" data-l="3.6" data-m="1" data-c="3">Saturated</button>
         </div>
         <div class="row">
@@ -144,7 +157,7 @@
       <p class="muted">How many people are standing in line. Orange is every separate line added together. Teal is the one shared line. The dashed line is that layout’s steady mean, Lq, drawn while ρ &lt; 1.</p>
     </div>
     <div class="panel-b">
-      <div class="viewport"><canvas id="trace" class="cv still trace" aria-label="People waiting over time. Orange is a line at each register. Teal is one shared line."></canvas></div>
+      <div class="viewport"><canvas id="trace" class="cv still trace" aria-label="People waiting over time. Orange is a line at each register. Teal is one shared line. Each dashed mean is numbered on the left."></canvas></div>
       <div class="legend">
         <span><i style="background:var(--high)"></i>a line at each register</span>
         <span><i style="background:var(--accent)"></i>one line</span>
@@ -155,15 +168,29 @@
 
   <section class="panel">
     <div class="panel-h">
-      <h2>Why the wait gets long</h2>
-      <p class="muted">Mean wait Wq against utilization ρ. Both curves climb without a bound as ρ reaches 1. The one shared line stays under the separate lines the whole way. The dots are this store.</p>
+      <h2>Why 60–70% is the load</h2>
+      <p class="muted">The resource under contention is whatever is doing the work. In this store it is a register. ρ is the share of its time already busy, and 1−ρ is the slack. Arrivals and checkouts are random, so a burst clears only as fast as that slack. One register’s mean wait is ρ/(μ(1−ρ)): the load divided by the slack, counted in checkouts. The table is that ratio. Under the band the wait is already short, and more idle time buys little. Through the band the ratio stays small. Past the band each step of load costs more than the one before, because the slack in the denominator is shrinking. A line at each register is one resource, so it wants this band. One shared line pools the slack, so its curve stays low further right.</p>
     </div>
     <div class="panel-b">
-      <div class="viewport"><canvas id="knee" class="cv still knee" aria-label="Mean wait against utilization for both layouts. Both curves climb as utilization approaches 1."></canvas></div>
+      <div class="viewport"><canvas id="knee" class="cv still knee" aria-label="Mean wait against utilization. Lines from this store’s dots meet the wait on the left and the utilization on the bottom. A band marks 60 to 70 percent."></canvas></div>
       <div class="legend">
+        <span><i style="background:var(--ok)"></i>60–70% load</span>
         <span><i style="background:var(--high)"></i>Wq, a line each</span>
         <span><i style="background:var(--accent)"></i>Wq, one line</span>
       </div>
+      <div class="table" id="bandTable">
+        <div class="tr th">
+          <span class="lbl" style="flex:1">load ρ</span>
+          <span class="lbl num">slack</span>
+          <span class="lbl num wide">checkouts of waiting, one register</span>
+        </div>
+        <div class="tr" data-lo="0" data-hi="0.6"><span class="mono">40%</span><span class="num">60%</span><span class="num wide">0.67</span></div>
+        <div class="tr band" data-lo="0.6" data-hi="0.65"><span class="mono">60%</span><span class="num">40%</span><span class="num wide">1.50</span></div>
+        <div class="tr band" data-lo="0.65" data-hi="0.7"><span class="mono">70%</span><span class="num">30%</span><span class="num wide">2.33</span></div>
+        <div class="tr" data-lo="0.7" data-hi="0.85"><span class="mono">80%</span><span class="num">20%</span><span class="num wide">4</span></div>
+        <div class="tr" data-lo="0.85" data-hi="1"><span class="mono">90%</span><span class="num">10%</span><span class="num wide">9</span></div>
+      </div>
+      <p class="note" id="kneeWhy"></p>
     </div>
   </section>
 

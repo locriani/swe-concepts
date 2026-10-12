@@ -3,7 +3,7 @@ import { mmc, splitMeans, createPair, advancePair, pairStats, configurePair } fr
 const $ = (id) => document.getElementById(id);
 const css = getComputedStyle(document.documentElement);
 const C = {};
-for (const k of ['fg', 'muted', 'faint', 'rule', 'rule-hi', 'accent', 'accent-dim', 'high', 'crit', 'sunk', 'raised']) {
+for (const k of ['fg', 'muted', 'faint', 'rule', 'rule-hi', 'accent', 'accent-dim', 'high', 'crit', 'ok', 'sunk', 'raised']) {
   C[k.replace('-', '')] = css.getPropertyValue('--' + k).trim();
 }
 const font = '12px IBM Plex Mono, ui-monospace, monospace';
@@ -39,6 +39,56 @@ function fmt(x) {
   return Number.isFinite(x) ? x.toFixed(2) : '—';
 }
 
+function fillRight(g, text, right, y) {
+  g.fillText(text, right - g.measureText(text).width, y);
+}
+
+// Keep callout numbers on their lines, and apart from each other.
+function spreadY(rows, gap, lo, hi) {
+  const out = rows.map((r) => ({ ...r })).sort((a, b) => a.y - b.y);
+  for (let i = 1; i < out.length; i++) {
+    if (out[i].y - out[i - 1].y < gap) {
+      const mid = (out[i].y + out[i - 1].y) / 2;
+      out[i - 1].y = mid - gap / 2;
+      out[i].y = mid + gap / 2;
+    }
+  }
+  if (out.length && out[0].y < lo) {
+    const d = lo - out[0].y;
+    for (const r of out) r.y += d;
+  }
+  if (out.length && out[out.length - 1].y > hi) {
+    const d = out[out.length - 1].y - hi;
+    for (const r of out) r.y -= d;
+  }
+  return out;
+}
+
+// One contended resource: wait in checkouts is ρ/(1−ρ). The band is where that
+// ratio is still small. Under it, idle time buys little. Past it, slack shrinks.
+function loadWhy(rho) {
+  if (!(rho < 1)) return `ρ = ${fmt(rho)}. Every register is busy and the line still grows. Slack 1−ρ is gone, so there is no steady wait. 60–70% is the load that keeps that slack on purpose.`;
+  const slack = Math.round((1 - rho) * 100);
+  if (rho < 0.6) return `ρ = ${fmt(rho)}, under the band. Each register is idle ${slack}% of the time. The wait is already short, so a quieter store mostly adds idle time.`;
+  if (rho <= 0.7) return `ρ = ${fmt(rho)}, inside the 60–70% band. Each register is busy most of the time and idle ${slack}% of the time. That idle fraction is the slack a burst needs.`;
+  return `ρ = ${fmt(rho)}, past the band. Each register is idle only ${slack}% of the time. A burst has less slack than the band keeps, so the wait climbs faster than the load.`;
+}
+
+function kneeWhy(rho) {
+  const lanes = splitMeans(lambda, mu, c);
+  const shared = mmc(lambda, mu, c);
+  if (!lanes.stable) return `This store is at ρ = ${fmt(rho)}. Slack is gone, so neither layout has a mean wait.`;
+  return `This store is at ρ = ${fmt(rho)}. Separate lines wait ${fmt(lanes.Wq * mu)} checkouts, the one-register ratio in the table. One line waits ${fmt(shared.Wq * mu)} checkouts, because the registers share the slack.`;
+}
+
+function markBand(rho) {
+  const inBand = rho >= 0.6 - 1e-9 && rho <= 0.7 + 1e-9;
+  document.querySelectorAll('#bandTable .tr[data-lo]').forEach((row) => {
+    const on = inBand ? row.classList.contains('band') : rho >= +row.dataset.lo && rho < +row.dataset.hi;
+    row.classList.toggle('on', on);
+  });
+}
+
 function note() {
   const rho = lambda / (c * mu);
   const shared = mmc(lambda, mu, c);
@@ -46,7 +96,7 @@ function note() {
   if (focus === 'rho') {
     return past
       ? `ρ = ${fmt(rho)} is past 1. The registers cannot keep up, and neither layout has a steady wait.`
-      : `ρ = ${fmt(rho)} is the fraction of time each register is busy. Both layouts have this same ρ. Total checkout speed is cμ = ${fmt(c * mu)}.`;
+      : `ρ = ${fmt(rho)} is the fraction of time each register is busy. Both layouts have this same ρ. Total checkout speed is cμ = ${fmt(c * mu)}. On one register the useful load is 60–70% of that time.`;
   }
   if (focus === 'lam') return `λ = ${fmt(lambda)} people arrive per unit time, on average. The gaps are messy and their mean is 1/λ = ${fmt(1 / lambda)}. Split across the registers, each line’s share is λ/c = ${fmt(lambda / c)}.`;
   if (focus === 'mu') return `μ = ${fmt(mu)} checkouts per unit time, on average, while someone is at the register. Each checkout is messy and the mean length is 1/μ = ${fmt(1 / mu)}. The bar under the person is how much of this one is left.`;
@@ -78,6 +128,13 @@ function paintReadout() {
   $('formulaNote').textContent = note();
   $('measLanes').textContent = `Waiting now ${st.lanes.qs.join(' · ')}. Measured mean wait ${fmt(st.lanes.Wq)}.`;
   $('measShared').textContent = `Waiting now ${st.shared.q}. Measured mean wait ${fmt(st.shared.Wq)}.`;
+  $('loadWhy').textContent = loadWhy(rho);
+  $('kneeWhy').textContent = kneeWhy(rho);
+  const mark = $('loadMark');
+  mark.style.left = `${Math.max(0, Math.min(rho, 1)) * 100}%`;
+  mark.classList.toggle('over', rho > 0.7 && rho < 1);
+  mark.classList.toggle('past', rho >= 1);
+  markBand(rho);
   document.querySelectorAll('[data-part]').forEach((b) => {
     const on = b.dataset.part === focus;
     b.classList.toggle('on', on);
@@ -285,7 +342,7 @@ function drawTrace() {
   const { g, w, h } = fit($('trace'));
   g.clearRect(0, 0, w, h);
   g.font = font;
-  const x = 16, y = 12, pw = w - 32, ph = h - 32;
+  const x = 52, y = 28, pw = w - x - 12, ph = h - y - 14;
   const now = sim.t, t0 = now - 40;
   const lanes = splitMeans(lambda, mu, c);
   const shared = mmc(lambda, mu, c);
@@ -299,25 +356,25 @@ function drawTrace() {
   g.strokeStyle = C.rule;
   g.strokeRect(x + 0.5, y + 0.5, pw, ph);
   g.fillStyle = C.faint;
-  g.fillText('people waiting', x + 8, y + 14);
-  g.fillText(String(ymax), x + 4, y + 28);
-  const mean = (n, color, label) => {
-    const yy = Y(n);
-    g.strokeStyle = color;
+  g.fillText('people waiting', x, y - 10);
+  const means = [];
+  if (lanes.stable) means.push({ n: lanes.Lq, color: C.high });
+  if (shared.stable) means.push({ n: shared.Lq, color: C.accent });
+  else {
+    g.fillStyle = C.crit;
+    g.fillText('no steady mean', x + pw - 120, y + 14);
+  }
+  for (const m of means) {
+    const yy = Y(m.n);
+    g.strokeStyle = m.color;
     g.setLineDash([4, 4]);
     g.beginPath();
     g.moveTo(x, yy);
     g.lineTo(x + pw, yy);
     g.stroke();
     g.setLineDash([]);
-    g.fillStyle = color;
-    g.fillText(label, x + 8, Math.min(y + ph - 4, Math.max(y + 26, yy - 4)));
-  };
-  if (lanes.stable) mean(lanes.Lq, C.high, 'mean, lines');
-  if (shared.stable) mean(shared.Lq, C.accent, 'mean, one line');
-  else {
-    g.fillStyle = C.crit;
-    g.fillText('no steady mean', x + pw - 120, y + 14);
+    m.y = yy;
+    m.text = fmt(m.n);
   }
   const stroke = (key, color) => {
     g.strokeStyle = color;
@@ -335,13 +392,29 @@ function drawTrace() {
   };
   stroke('lanes', C.high);
   stroke('shared', C.accent);
+  const unique = [];
+  for (const m of means) {
+    if (unique.some((u) => u.text === m.text && Math.abs(u.y - m.y) < 8)) continue;
+    unique.push(m);
+  }
+  const placed = spreadY(unique, 14, y + 8, y + ph - 8);
+  g.textBaseline = 'middle';
+  if (!placed.some((m) => m.y < y + 20)) {
+    g.fillStyle = C.faint;
+    fillRight(g, String(ymax), x - 8, y + 8);
+  }
+  for (const m of placed) {
+    g.fillStyle = m.color;
+    fillRight(g, m.text, x - 8, m.y);
+  }
+  g.textBaseline = 'alphabetic';
 }
 
 function drawKnee() {
   const { g, w, h } = fit($('knee'));
   g.clearRect(0, 0, w, h);
   g.font = font;
-  const x0 = 40, y0 = 16, x1 = w - 16, y1 = h - 28, ymax = 12;
+  const x0 = 52, y0 = 16, x1 = w - 16, y1 = h - 32, ymax = 12;
   const X = (r) => x0 + (x1 - x0) * r;
   const Y = (v) => y1 - (y1 - y0) * Math.min(Math.max(v, 0), ymax) / ymax;
   g.strokeStyle = C.rule;
@@ -350,11 +423,18 @@ function drawKnee() {
   g.lineTo(x0, y1);
   g.lineTo(x1, y1);
   g.stroke();
+  g.save();
+  g.globalAlpha = 0.2;
+  g.fillStyle = C.ok;
+  g.fillRect(X(0.6), y0, X(0.7) - X(0.6), y1 - y0);
+  g.restore();
+  const bandLabel = '60–70%';
+  const bandW = g.measureText(bandLabel).width;
+  const bandX = Math.max(x0 + 4, Math.min((X(0.6) + X(0.7) - bandW) / 2, x1 - bandW - 4));
   g.fillStyle = C.faint;
-  g.fillText('Wq', 6, y0 + 10);
-  g.fillText('12', 12, Y(12) + 4);
+  g.fillText('12', x0 + 6, y0 + 14);
+  g.fillText('Wq', x0 + 6 + g.measureText('12').width + 10, y0 + 14);
   g.fillText('0', x0, y1 + 16);
-  g.fillText('ρ', (x0 + x1) / 2 - 4, y1 + 16);
   g.fillText('1', x1 - 8, y1 + 16);
   const curve = (fn, color) => {
     g.strokeStyle = color;
@@ -372,28 +452,65 @@ function drawKnee() {
   };
   curve(splitMeans, C.high);
   curve(mmc, C.accent);
+  g.strokeStyle = C.ok;
+  g.beginPath();
+  g.moveTo(X(0.6) + 0.5, y0);
+  g.lineTo(X(0.6) + 0.5, y1);
+  g.moveTo(X(0.7) + 0.5, y0);
+  g.lineTo(X(0.7) + 0.5, y1);
+  g.stroke();
   const rho = lambda / (c * mu);
   if (rho < 1 && rho >= 0) {
     const Ls = splitMeans(lambda, mu, c), Sh = mmc(lambda, mu, c);
-    g.strokeStyle = C.faint;
+    const marks = [
+      { at: Y(Ls.Wq), y: Y(Ls.Wq), text: fmt(Ls.Wq), color: C.high },
+      { at: Y(Sh.Wq), y: Y(Sh.Wq), text: fmt(Sh.Wq), color: C.accent },
+    ];
+    const shown = marks[0].text === marks[1].text ? [marks[0]] : marks;
+    const px = X(rho);
     g.setLineDash([3, 3]);
+    g.strokeStyle = C.faint;
     g.beginPath();
-    g.moveTo(X(rho), y1);
-    g.lineTo(X(rho), Y(Ls.Wq));
+    g.moveTo(px, y1);
+    g.lineTo(px, Math.min(marks[0].at, marks[1].at));
     g.stroke();
+    for (const m of shown) {
+      g.strokeStyle = m.color;
+      g.beginPath();
+      g.moveTo(x0, m.at);
+      g.lineTo(px, m.at);
+      g.stroke();
+    }
     g.setLineDash([]);
     for (const [wq, color] of [[Ls.Wq, C.high], [Sh.Wq, C.accent]]) {
       g.fillStyle = color;
       g.beginPath();
-      g.arc(X(rho), Y(wq), 4, 0, Math.PI * 2);
+      g.arc(px, Y(wq), 4, 0, Math.PI * 2);
       g.fill();
     }
+    g.textBaseline = 'middle';
+    for (const m of spreadY(shown, 14, y0 + 8, y1 - 8)) {
+      g.fillStyle = m.color;
+      fillRight(g, m.text, x0 - 8, m.y);
+    }
+    g.textBaseline = 'alphabetic';
     g.fillStyle = C.fg;
-    g.fillText('ρ = ' + rho.toFixed(2), Math.min(X(rho) + 8, x1 - 72), y0 + 14);
+    g.fillRect(px - 0.5, y1, 1, 5);
+    const rhoText = fmt(rho);
+    const rhoW = g.measureText(rhoText).width;
+    const rhoX = Math.max(x0 + 16, Math.min(px - rhoW / 2, x1 - 16 - rhoW));
+    g.fillText(rhoText, rhoX, y1 + 16);
+    const titleX = (x0 + x1) / 2 - 4;
+    if (rhoX > titleX + 14 || rhoX + rhoW < titleX - 6) {
+      g.fillStyle = C.faint;
+      g.fillText('ρ', titleX, y1 + 16);
+    }
   } else {
     g.fillStyle = C.crit;
-    g.fillText('ρ = ' + rho.toFixed(2) + '  no steady mean', x0 + 8, y0 + 18);
+    g.fillText('ρ = ' + rho.toFixed(2) + '  no steady mean', x0 + 8, y0 + 28);
   }
+  g.fillStyle = C.ok;
+  g.fillText(bandLabel, bandX, y0 + 14);
 }
 
 function drawDist() {
