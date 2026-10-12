@@ -28,7 +28,7 @@ python3 -m http.server 5391 -d transformers   # local server at http://localhost
 node transformers/llama.test.mjs               # forward-pass invariants on synthetic weights
 node transformers/learn/tiny.test.mjs          # backward pass against finite differences
 node transformers/queue/sim.test.mjs           # M/M/1 means, Little's law, unstable growth
-npx -y firebase-tools@15.32.1 deploy --only hosting   # publish to https://ml-concepts.canwetakethis.online (Firebase project canwetakethisonline requiring firebase login)
+npx -y firebase-tools@15.32.1 deploy --only hosting   # publish to https://concepts.canwetakethis.online (Firebase project canwetakethisonline requiring firebase login)
 ```
 
 ### Notes
